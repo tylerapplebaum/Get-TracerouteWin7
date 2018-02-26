@@ -1,3 +1,4 @@
+#Borrowed some UDP code from Boe Prox. Thanks Boe.
 #https://learn-powershell.net/2011/02/21/querying-udp-ports-with-powershell/
 
 function UDPee2 { #A Record resolution
@@ -6,34 +7,29 @@ function UDPee2 { #A Record resolution
 	    [Parameter(Mandatory=$True,HelpMessage="Specify the A record to resolve")]
 		[string]$ARecordName
 	)
-	
+$ErrorActionPreference = 'Stop'
 $enc = [system.Text.Encoding]::UTF8
-$Str1 = $ARecordName.split('.')
-$data1 = $enc.GetBytes($Str1[0]) 
-$data2 = $enc.GetBytes($Str1[1]) 
-#$BA = [System.BitConverter]::ToString($Data1)
-#$FH = "0x{0:X}" -f $BA -replace '-',',0x' #Damn that's ugly.
-	
-$udpobject = new-Object system.Net.Sockets.Udpclient
-$udpobject.Connect("75.75.75.75",53)
-$udpobject.Client.ReceiveTimeout = 1000
+$Str1 = $ARecordName.split('.') #Get rid of the .
+$i = 0
+ForEach ($Item in $Str1) {
+New-Variable -Name Field$i -Value $enc.GetBytes($Str1[$i])
+    [byte[]]$Middle += $(Get-Variable -Name Field$i | Select-Object -Expand Value).Length
+    [byte[]]$Middle += $(Get-Variable -Name Field$i | Select-Object -expand Value)
+$i++
+}
+
 #$udpobject.Client.Blocking = $False
 $a = new-object system.text.asciiencoding
 
-#$ToPrepend = '0x00,0x04,0x01,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x04'
-#$ToSend = $ToPrepend, $FH -join ","
-#[Byte[]]$byte = 0x00,0x04,0x01,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x05,0x6f,0x63,0x68,0x69,0x6e,0x03,0x6f,0x72,0x67,0x00,0x00,0x01,0x00,0x01 #ochin.org
-#[Byte[]]$byte = 0x00,0x04,0x01,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x04,0x65,0x62,0x61,0x79,0x03,0x63,0x6f,0x6d,0x00,0x00,0x01,0x00,0x01 #ebay.com
+[byte[]]$Prepend = 0,4,1,0,0,1,0,0,0,0,0,0 #So, yeah. This needs to be broken out into separate variables for each piece of the DNS header. #First '4' is transaction ID - need to keep counter and ++
+[byte[]]$Append = 0,0,1,0,1 #More header fields to be broken out - Record Type and Class (IN)
 
-[byte[]]$Prepend = 0,4,1,0,0,1,0,0,0,0,0,0,4 #So, yeah. This needs to be broken out into separate variables for each piece of the DNS header. The last '4' is actually the number of characters in 'ebay'. #First '4' is transaction ID I believe - need to keep counter and ++
+[byte[]]$Combined = $Prepend + $Middle + $Append
+Write-Verbose $Combined
+$udpobject = new-Object system.Net.Sockets.Udpclient
+$udpobject.Connect("75.75.75.75",53)
+$udpobject.Client.ReceiveTimeout = 1000
 
-[byte[]]$Dot = 3 #LOL this is not a dot, you tard. This is the length of characters in the next field.
-
-[byte[]]$Append = 0,0,1,0,1
-
-[byte[]]$Combined = $Prepend + $Data1 + $Dot + $Data2 + $Append
-
-#[Byte[]]$byte = 0x00,0x09,0x01,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x02,0x39,0x39,0x02,0x31,0x30,0x03,0x31,0x36,0x39,0x03,0x31,0x39,0x32,0x07,0x69,0x6e,0x2d,0x61,0x64,0x64,0x72,0x04,0x61,0x72,0x70,0x61,0x00,0x00,0x0c,0x00,0x01 #99.10.169.192.in-addr.arpa 
 [void]$udpobject.Send($Combined,$Combined.length)
 $remoteendpoint = New-Object system.net.ipendpoint([system.net.ipaddress]::Any,0)
 
@@ -45,7 +41,7 @@ Try {
 
 If ($receivebytes) {
 $global:answer = $receivebytes
-$String = [string]$answer[-4] + "." + [string]$answer[-3] + "." + [string]$answer[-2] + "." + [string]$answer[-1]
+$String = $Answer[-4..-1] -join '.' #Lazy way. We capture the last 4 bytes and assume it's the IP. Gotta fix - but it works for now.
 Write-Output $String
     #[string]$returndata = $a.GetString($receivebytes)
 	#$returndata
@@ -57,6 +53,7 @@ $udpobject.Close()
 } #End UDPee2
 
 function UDPeePTR { #PTR Record resolution
+#[Byte[]]$byte = 0x00,0x09,0x01,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x02,0x39,0x39,0x02,0x31,0x30,0x03,0x31,0x36,0x39,0x03,0x31,0x39,0x32,0x07,0x69,0x6e,0x2d,0x61,0x64,0x64,0x72,0x04,0x61,0x72,0x70,0x61,0x00,0x00,0x0c,0x00,0x01 #99.10.169.192.in-addr.arpa 
 $udpobject = new-Object system.Net.Sockets.Udpclient
 $udpobject.Connect("172.31.252.100",53)
 $udpobject.Client.ReceiveTimeout = 1000
