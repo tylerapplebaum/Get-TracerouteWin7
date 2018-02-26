@@ -19,16 +19,18 @@ $i++
 }
 
 #$udpobject.Client.Blocking = $False
-$a = new-object system.text.asciiencoding
+#$a = new-object system.text.asciiencoding
 
 [byte[]]$Prepend = 0,4,1,0,0,1,0,0,0,0,0,0 #So, yeah. This needs to be broken out into separate variables for each piece of the DNS header. #First '4' is transaction ID - need to keep counter and ++
 [byte[]]$Append = 0,0,1,0,1 #More header fields to be broken out - Record Type and Class (IN)
 
 [byte[]]$Combined = $Prepend + $Middle + $Append
-Write-Verbose $Combined
+
+#Write-Output $Combined
+
 $udpobject = new-Object system.Net.Sockets.Udpclient
 $udpobject.Connect("75.75.75.75",53)
-$udpobject.Client.ReceiveTimeout = 1000
+$udpobject.Client.ReceiveTimeout = 1000 #Hot damn that's fast
 
 [void]$udpobject.Send($Combined,$Combined.length)
 $remoteendpoint = New-Object system.net.ipendpoint([system.net.ipaddress]::Any,0)
