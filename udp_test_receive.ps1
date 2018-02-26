@@ -11,13 +11,19 @@ $ErrorActionPreference = 'Stop'
 $enc = [system.Text.Encoding]::UTF8
 $Str1 = $ARecordName.split('.') #Get rid of the .
 $i = 0
+<#
 ForEach ($Item in $Str1) {
 New-Variable -Name Field$i -Value $enc.GetBytes($Str1[$i])
     [byte[]]$Middle += $(Get-Variable -Name Field$i | Select-Object -Expand Value).Length
     [byte[]]$Middle += $(Get-Variable -Name Field$i | Select-Object -expand Value)
 $i++
 }
-
+#>
+ForEach ($Item in $Str1) {
+$ItemBytes = $enc.GetBytes($item)
+[byte[]]$Middle += $ItemBytes.Length
+[byte[]]$Middle += $ItemBytes
+}
 #$udpobject.Client.Blocking = $False
 #$a = new-object system.text.asciiencoding
 
@@ -26,8 +32,8 @@ $i++
 
 [byte[]]$Combined = $Prepend + $Middle + $Append
 
-#Write-Output $Combined
-
+Write-Output $Combined
+pause
 $udpobject = new-Object system.Net.Sockets.Udpclient
 $udpobject.Connect("75.75.75.75",53)
 $udpobject.Client.ReceiveTimeout = 1000 #Hot damn that's fast
