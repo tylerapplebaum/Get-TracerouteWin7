@@ -5,20 +5,15 @@ function UDPee2 { #A Record resolution
 [CmdletBinding()]
     param(
 	    [Parameter(Mandatory=$True,HelpMessage="Specify the A record to resolve")]
-		[string]$ARecordName
+		[string]$ARecordName,
+		[Parameter(HelpMessage="Specify the DNS server to use")]
+		[string]$DNSServer = (Get-WmiObject -Class Win32_NetworkAdapterConfiguration -Filter IPEnabled=TRUE -ErrorAction Stop | Select-Object -ExpandProperty DNSServerSearchOrder)[0]
 	)
 $ErrorActionPreference = 'Stop'
 $enc = [system.Text.Encoding]::UTF8
 $Str1 = $ARecordName.split('.') #Get rid of the .
 $i = 0
-<#
-ForEach ($Item in $Str1) {
-New-Variable -Name Field$i -Value $enc.GetBytes($Str1[$i])
-    [byte[]]$Middle += $(Get-Variable -Name Field$i | Select-Object -Expand Value).Length
-    [byte[]]$Middle += $(Get-Variable -Name Field$i | Select-Object -expand Value)
-$i++
-}
-#>
+Write-Verbose $DNSServer
 ForEach ($Item in $Str1) {
 $ItemBytes = $enc.GetBytes($item)
 [byte[]]$Middle += $ItemBytes.Length
@@ -32,10 +27,8 @@ $ItemBytes = $enc.GetBytes($item)
 
 [byte[]]$Combined = $Prepend + $Middle + $Append
 
-Write-Output $Combined
-pause
 $udpobject = new-Object system.Net.Sockets.Udpclient
-$udpobject.Connect("75.75.75.75",53)
+$udpobject.Connect($DNSServer,53)
 $udpobject.Client.ReceiveTimeout = 1000 #Hot damn that's fast
 
 [void]$udpobject.Send($Combined,$Combined.length)
